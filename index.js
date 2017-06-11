@@ -16,7 +16,7 @@ var watch = require('watch');
 */
 function assignJSONfile(relPath, separator, absPath, obj) {
 	try { var additive = JSON.parse(fs.readFileSync(absPath)); }
-	catch (e) { return false;}
+	catch(err) { console.error(err); return false; }
 	var bases = relPath.split(separator);
 	for (let depth = bases.length - 1; depth >=0; depth--) {
 		additive = { [bases[depth]]: additive };
@@ -39,7 +39,7 @@ function deleteByRelPath(relPath, separator, obj) {
 		additive += '["'+ bases[depth] +'"]';
 	}
 	try { eval(additive); }
-	catch (e) { return false; }
+	catch(err) { console.error(err); return false; }
 	return true;
 }
 
@@ -114,7 +114,7 @@ DB.prototype.push = function() {
 				if (this.commits[n][0] === 'create') {
 					if (path.extname(this.commits[n][1]) == '.json') {
 						mkdirp.sync(path.dirname(absPath));
-						fs.writeFileSync(absPath, stringify(this.commits[n][2]), this.prettify);
+						fs.writeFileSync(absPath, stringify(this.commits[n][2], this.prettify));
 					}
 				}
 				else if (this.commits[n][0] === 'delete') {
@@ -136,7 +136,7 @@ DB.prototype.push = function() {
 			}
 		}
 	}
-	catch (e) {}
+	catch(err) { console.error(err); }
 	this.commits = [];
 }
 /*
@@ -155,13 +155,13 @@ DB.prototype.get = function(relPath, key, reassign) {
 		if (typeof additive === 'undefined') break;
 	}
 	if (key) {
-		try { eval('additive = additive'+ key); }
-		catch (e) { additive = undefined; }
+		try { eval('additive = additive.'+ key); }
+		catch(err) { additive = undefined; }
 	}
 	return additive;
 }
 /*
-	DB.set - creale file or set `key`'s value in it
+	DB.set - create file or set `key`'s value in it
 	Arguments:
 	+ relPath - relative path to file
 	+ key - (optional) key to set the value of (will be evaluated)
@@ -172,7 +172,7 @@ DB.prototype.set = function(relPath, key, value) {
 	try {
 		if (key) {
 			var contents = this.get(relPath);
-			contents[key] = value;
+			eval('contents'+ ('.'+key || '') +' = value');
 			this.commits.push(relPath);
 		}
 		else {
@@ -185,7 +185,7 @@ DB.prototype.set = function(relPath, key, value) {
 			this.commits.push(['create', relPath, value]);
 		}
 	}
-	catch (e) { return false; }
+	catch(err) { console.error(err); return false; }
 	if (this.instantPush) this.push();
 	return true;
 }
@@ -199,11 +199,11 @@ DB.prototype.delete = function(relPath, key) {
 	try {
 		if (key) {
 			var contents = this.get(relPath);
-			eval('delete contents'+ key);
+			eval('delete contents.'+ key);
 		}
 		else deleteByRelPath(relPath, this.pathSep, this);
 	}
-	catch (e) { return false; }
+	catch(err) { console.error(err); return false; }
 	if (key) this.commits.push(relPath);
 	else this.commits.push(['delete', relPath]);
 	if (this.instantPush) this.push();
